@@ -1,6 +1,6 @@
 CSI 3370 Group 8
 
-Committing to GitHub use the Source Control on the left side
+Use GitHub Desktop for commiting Code
 
 
 # Getting Started with Create React App
