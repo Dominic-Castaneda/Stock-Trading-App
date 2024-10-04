@@ -1,5 +1,8 @@
 CSI 3370 Group 8
 
+Committing to GitHub
+
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
