@@ -7,7 +7,10 @@ function App() {
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
         <h1>Welcome to the Stock Trading Simulator</h1>
-        <p>Stay tuned for our upcoming features!</p>
+        <p>
+          Stay tuned for our upcoming features!
+        </p>
+        <p>CSI 3370 Group 8</p>
         <p>
           Edit <code>src/App.js</code> and save to reload.
         </p>
