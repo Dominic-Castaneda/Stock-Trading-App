@@ -10,7 +10,10 @@ function App() {
         <p>
           Stay tuned for our upcoming features!
         </p>
-        <p>CSI 3370 Group 8</p>
+        <p>
+          CSI 3370 Group 8
+        </p>
+        <h1>Yo</h1>
         <p>
           Edit <code>src/App.js</code> and save to reload.
         </p>
