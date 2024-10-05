@@ -2,6 +2,7 @@ CSI 3370 Group 8
 
 Use GitHub Desktop for commiting Code
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/1b368fc8-810b-4cbc-a0ea-6b8f9608df8b/deploy-status)](https://app.netlify.com/sites/charming-puppy-c18fc9/deploys)
 
 # Getting Started with Create React App
 
