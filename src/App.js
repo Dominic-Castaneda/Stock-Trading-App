@@ -13,7 +13,6 @@ function App() {
         <p>
           CSI 3370 Group 8
         </p>
-        <h1>Yo</h1>
         <p>
           Edit <code>src/App.js</code> and save to reload.
         </p>
