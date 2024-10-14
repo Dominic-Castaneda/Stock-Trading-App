@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { Grid, Paper, Button, Typography, Snackbar, Alert } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ShoppingCart, Sell } from '@mui/icons-material';
+import supabase from './supabaseClient';  // Import the Supabase client
 
 // Create a dark theme using Material-UI's theme system
 const darkTheme = createTheme({
@@ -14,25 +15,10 @@ const darkTheme = createTheme({
   },
 });
 
-// Sample data for the stock chart
-const stockData = [
-  { time: '10:00', price: 110 },
-  { time: '10:05', price: 120 },
-  { time: '10:10', price: 115 },
-  { time: '10:15', price: 125 },
-  { time: '10:20', price: 130 },
-];
-
-// Sample transaction history data
-const initialTrades = [
-  { id: 1, stock: 'AAPL', action: 'Buy', quantity: 10, price: 150 },
-  { id: 2, stock: 'GOOGL', action: 'Sell', quantity: 5, price: 1200 },
-];
-
 function App() {
-  // State for selected stock, trades, and notification
   const [selectedStock, setSelectedStock] = useState('AAPL');
-  const [trades, setTrades] = useState(initialTrades);
+  const [trades, setTrades] = useState([]);  // Fetch trades from Supabase
+  const [stockData, setStockData] = useState([]);  // Fetch stock data from Supabase
   const [notification, setNotification] = useState({ open: false, message: '', severity: '' });
 
   // Function to handle stock change
@@ -40,21 +26,60 @@ function App() {
     setSelectedStock(event.target.value);
   };
 
-  // Function to handle Buy and Sell actions
-  const handleTrade = (action) => {
-    const newTrade = {
-      id: trades.length + 1,
-      stock: selectedStock,
-      action,
-      quantity: Math.floor(Math.random() * 10) + 1, // Random quantity for simplicity
-      price: Math.floor(Math.random() * 1000) + 100, // Random price for simplicity
+  // Fetch stock data from Supabase when component loads
+  useEffect(() => {
+    const fetchStockData = async () => {
+      const { data, error } = await supabase.from('stocks').select('*');
+      if (error) {
+        console.error('Error fetching stock data:', error);
+      } else {
+        setStockData(data);  // Update state with stock data
+      }
     };
-    setTrades([...trades, newTrade]);
-    setNotification({
-      open: true,
-      message: `${action} order for ${newTrade.quantity} shares of ${newTrade.stock} placed successfully!`,
-      severity: 'success',
-    });
+
+    fetchStockData();
+  }, []);
+
+  // Fetch trades data (transaction history) from Supabase when component loads
+  useEffect(() => {
+    const fetchTrades = async () => {
+      const { data, error } = await supabase.from('transactions').select('*');
+      if (error) {
+        console.error('Error fetching trades data:', error);
+      } else {
+        setTrades(data);  // Update state with trades data
+      }
+    };
+
+    fetchTrades();
+  }, []);
+
+  // Function to handle Buy and Sell actions
+  const handleTrade = async (action) => {
+    const newTrade = {
+      stock: selectedStock,
+      action: action,
+      quantity: Math.floor(Math.random() * 10) + 1,  // Random quantity for simplicity
+      price: Math.floor(Math.random() * 1000) + 100,  // Random price for simplicity
+    };
+
+    // Insert the new trade into the Supabase database
+    const { data, error } = await supabase.from('transactions').insert([newTrade]);
+    if (error) {
+      console.error('Error inserting trade:', error);
+      setNotification({
+        open: true,
+        message: `Failed to place ${action} order for ${newTrade.quantity} shares of ${newTrade.stock}.`,
+        severity: 'error',
+      });
+    } else {
+      setTrades([...trades, newTrade]);  // Update local state with the new trade
+      setNotification({
+        open: true,
+        message: `${action} order for ${newTrade.quantity} shares of ${newTrade.stock} placed successfully!`,
+        severity: 'success',
+      });
+    }
   };
 
   // Function to close notification
