@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { Grid, Paper, Button, Typography, Snackbar, Alert } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { ResponsiveContainer, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Line, Bar } from 'recharts';
+import { ResponsiveContainer, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Line } from 'recharts';
 import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ShoppingCart, Sell } from '@mui/icons-material';
@@ -33,15 +33,19 @@ function App() {
       if (error) {
         console.error('Error fetching stock data:', error);
       } else {
+        console.log('Raw Stock Data from Supabase:', data);  // Debug log to verify data structure
+        
         // Transform the data to match candlestick chart requirements
         const transformedData = data.map(item => ({
-          time: item['Date'],           // Map `Date` to `time`
+          time: item['Date'],  // Map `Date` to `time`
           open: parseFloat(item['Open']),
           high: parseFloat(item['High']),
           low: parseFloat(item['Low']),
           close: parseFloat(item['Close/Last']),
           volume: parseFloat(item['Volume'])
         }));
+
+        console.log('Transformed Stock Data:', transformedData); // Debug log to verify transformed data
         setStockData(transformedData);  // Update state with transformed data
       }
     };
@@ -114,16 +118,19 @@ function App() {
             <Typography variant="h6" style={{ paddingBottom: '10px' }}>
               Stock Chart for {selectedStock}
             </Typography>
-            <ResponsiveContainer width="100%" height="80%">
-              <ComposedChart data={stockData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" />
-                <YAxis domain={['auto', 'auto']} />
-                <Tooltip />
-                <Bar dataKey="volume" fill="#8884d8" />
-                <Line type="monotone" dataKey="close" stroke="#82ca9d" />
-              </ComposedChart>
-            </ResponsiveContainer>
+            {stockData.length === 0 ? (
+              <Typography variant="body1">Loading stock data...</Typography>
+            ) : (
+              <ResponsiveContainer width="100%" height="80%">
+                <LineChart data={stockData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" />
+                  <YAxis domain={['auto', 'auto']} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="close" stroke="#82ca9d" />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </Paper>
         </Grid>
 
