@@ -20,6 +20,8 @@ function App() {
   const [trades, setTrades] = useState([]);  // Fetch trades from Supabase
   const [stockData, setStockData] = useState([]);  // Fetch stock data from Supabase
   const [notification, setNotification] = useState({ open: false, message: '', severity: '' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); // State to capture errors
 
   // Function to handle stock change
   const handleStockChange = (event) => {
@@ -29,25 +31,52 @@ function App() {
   // Fetch stock data from Supabase when component loads
   useEffect(() => {
     const fetchStockData = async () => {
+      setLoading(true);
+      setError(null);
       const { data, error } = await supabase.from('AAPL').select('*');
       if (error) {
         console.error('Error fetching stock data:', error);
-      } else {
-        console.log('Raw Stock Data from Supabase:', data);  // Debug log to verify data structure
-        
-        // Transform the data to match candlestick chart requirements
-        const transformedData = data.map(item => ({
-          time: item['Date'],  // Map `Date` to `time`
-          open: parseFloat(item['Open']),
-          high: parseFloat(item['High']),
-          low: parseFloat(item['Low']),
-          close: parseFloat(item['Close/Last']),
-          volume: parseFloat(item['Volume'])
-        }));
-
-        console.log('Transformed Stock Data:', transformedData); // Debug log to verify transformed data
-        setStockData(transformedData);  // Update state with transformed data
+        setError('Error fetching stock data. Please check your database configuration.');
+        setLoading(false);
+        return;
       }
+
+      if (!data || data.length === 0) {
+        console.error('No stock data available.');
+        setError('No stock data available. Please ensure the table is populated.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Raw Stock Data from Supabase:', data);  // Debug log to verify data structure
+
+      // Transform the data to match the chart requirements
+      const transformedData = data.map(item => {
+        const parsePrice = (value) => parseFloat(value.replace('$', '').replace(',', ''));
+
+        const open = parsePrice(item['Open']);
+        const high = parsePrice(item['High']);
+        const low = parsePrice(item['Low']);
+        const close = parsePrice(item['Close/Last']);
+        const volume = parseInt(item['Volume'], 10);
+
+        if (isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close) || isNaN(volume)) {
+          console.error('Data transformation failed. Invalid numeric values:', item);
+        }
+
+        return {
+          time: item['Date'],
+          open,
+          high,
+          low,
+          close,
+          volume
+        };
+      });
+
+      console.log('Transformed Stock Data:', transformedData); // Debug log to verify transformed data
+      setStockData(transformedData);  // Update state with transformed data
+      setLoading(false);
     };
 
     fetchStockData();
@@ -118,8 +147,10 @@ function App() {
             <Typography variant="h6" style={{ paddingBottom: '10px' }}>
               Stock Chart for {selectedStock}
             </Typography>
-            {stockData.length === 0 ? (
+            {loading ? (
               <Typography variant="body1">Loading stock data...</Typography>
+            ) : error ? (
+              <Typography variant="body1" color="error">{error}</Typography>
             ) : (
               <ResponsiveContainer width="100%" height="80%">
                 <LineChart data={stockData}>
