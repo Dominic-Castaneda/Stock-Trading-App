@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { Grid, Paper, Button, Typography, Snackbar, Alert } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ResponsiveContainer, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Line, Bar } from 'recharts';
 import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ShoppingCart, Sell } from '@mui/icons-material';
@@ -29,11 +29,20 @@ function App() {
   // Fetch stock data from Supabase when component loads
   useEffect(() => {
     const fetchStockData = async () => {
-      const { data, error } = await supabase.from('stocks').select('*');
+      const { data, error } = await supabase.from('AAPL').select('*');
       if (error) {
         console.error('Error fetching stock data:', error);
       } else {
-        setStockData(data);  // Update state with stock data
+        // Transform the data to match candlestick chart requirements
+        const transformedData = data.map(item => ({
+          time: item['Date'],           // Map `Date` to `time`
+          open: parseFloat(item['Open']),
+          high: parseFloat(item['High']),
+          low: parseFloat(item['Low']),
+          close: parseFloat(item['Close/Last']),
+          volume: parseFloat(item['Volume'])
+        }));
+        setStockData(transformedData);  // Update state with transformed data
       }
     };
 
@@ -64,7 +73,7 @@ function App() {
     };
 
     // Insert the new trade into the Supabase database
-    const { data, error } = await supabase.from('transactions').insert([newTrade]);
+    const { error } = await supabase.from('transactions').insert([newTrade]);
     if (error) {
       console.error('Error inserting trade:', error);
       setNotification({
@@ -106,13 +115,14 @@ function App() {
               Stock Chart for {selectedStock}
             </Typography>
             <ResponsiveContainer width="100%" height="80%">
-              <LineChart data={stockData}>
+              <ComposedChart data={stockData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="time" />
                 <YAxis domain={['auto', 'auto']} />
                 <Tooltip />
-                <Line type="monotone" dataKey="price" stroke="#82ca9d" />
-              </LineChart>
+                <Bar dataKey="volume" fill="#8884d8" />
+                <Line type="monotone" dataKey="close" stroke="#82ca9d" />
+              </ComposedChart>
             </ResponsiveContainer>
           </Paper>
         </Grid>
@@ -181,8 +191,8 @@ function App() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {trades.map((trade) => (
-                    <TableRow key={trade.id}>
+                  {trades.map((trade, index) => (
+                    <TableRow key={index}>
                       <TableCell>{trade.stock}</TableCell>
                       <TableCell align="right">{trade.action}</TableCell>
                       <TableCell align="right">{trade.quantity}</TableCell>
