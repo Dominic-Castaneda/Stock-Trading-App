@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { Grid, Paper, Button, Typography, Snackbar, Alert, Avatar, Popover } from '@mui/material';
+import { Grid, Paper, Button, Typography, Snackbar, Alert } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { ResponsiveContainer, LineChart, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, Line, Bar } from 'recharts';
-import { ShoppingCart, Sell } from '@mui/icons-material';
+import { ResponsiveContainer, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Line } from 'recharts';
+import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
-import { useGesture } from '@use-gesture/react';
+import { ShoppingCart, Sell } from '@mui/icons-material';
 import supabase from './supabaseClient';  // Import the Supabase client
 
 // Create a dark theme using Material-UI's theme system
@@ -29,19 +29,17 @@ const darkTheme = createTheme({
 });
 
 function App() {
-  const [trades, setTrades] = useState([]);
-  const [stockData, setStockData] = useState([]);
+  const [selectedStock, setSelectedStock] = useState('AAPL');
+  const [trades, setTrades] = useState([]);  // Fetch trades from Supabase
+  const [stockData, setStockData] = useState([]);  // Fetch stock data from Supabase
   const [notification, setNotification] = useState({ open: false, message: '', severity: '' });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [chartDomain, setChartDomain] = useState({ xStart: 0, xEnd: 30 });
-  const [profile] = useState({
-    name: 'John Doe',
-    currentBalance: 10000,
-    availableFunds: 5000,
-    profilePic: null,
-  });
-  const [anchorEl, setAnchorEl] = useState(null); // For handling profile popover
+  const [error, setError] = useState(null); // State to capture errors
+
+  // Function to handle stock change
+  const handleStockChange = (event) => {
+    setSelectedStock(event.target.value);
+  };
 
   // Fetch stock data from Supabase when component loads
   useEffect(() => {
@@ -63,71 +61,64 @@ function App() {
         return;
       }
 
-      console.log('Fetched Data:', data); // Debug log to verify fetched data
+      console.log('Raw Stock Data from Supabase:', data);  // Debug log to verify data structure
 
+      // Transform the data to match the chart requirements
       const transformedData = data.map(item => {
         const parsePrice = (value) => parseFloat(value.replace('$', '').replace(',', ''));
+
+        const open = parsePrice(item['Open']);
+        const high = parsePrice(item['High']);
+        const low = parsePrice(item['Low']);
+        const close = parsePrice(item['Close/Last']);
+        const volume = parseInt(item['Volume'], 10);
+
+        if (isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close) || isNaN(volume)) {
+          console.error('Data transformation failed. Invalid numeric values:', item);
+        }
+
         return {
           time: item['Date'],
-          open: parsePrice(item['Open']),
-          high: parsePrice(item['High']),
-          low: parsePrice(item['Low']),
-          close: parsePrice(item['Close/Last']),
-          volume: parseInt(item['Volume'], 10),
+          open,
+          high,
+          low,
+          close,
+          volume
         };
       });
 
-      setStockData(transformedData.reverse()); // Reverse to start from the last entry
+      console.log('Transformed Stock Data:', transformedData); // Debug log to verify transformed data
+      setStockData(transformedData);  // Update state with transformed data
       setLoading(false);
     };
 
     fetchStockData();
   }, []);
 
-  // Function to simulate adding data points every 10 seconds
+  // Fetch trades data (transaction history) from Supabase when component loads
   useEffect(() => {
-    if (stockData.length > 0) {
-      const interval = setInterval(() => {
-        setStockData((prevData) => {
-          const nextIndex = prevData.length;
-          if (nextIndex < stockData.length) {
-            return [...prevData, stockData[nextIndex]];
-          }
-          clearInterval(interval);
-          return prevData;
-        });
-      }, 10000);
+    const fetchTrades = async () => {
+      const { data, error } = await supabase.from('transactions').select('*');
+      if (error) {
+        console.error('Error fetching trades data:', error);
+      } else {
+        setTrades(data);  // Update state with trades data
+      }
+    };
 
-      return () => clearInterval(interval);
-    }
-  }, [stockData]);
-
-  // Gesture to handle zooming and panning
-  const bind = useGesture({
-    onWheel: ({ delta: [, dy] }) => {
-      let newDomain = [chartDomain.xStart, chartDomain.xEnd];
-      const zoomFactor = dy < 0 ? 0.9 : 1.1;
-      newDomain[0] = Math.max(0, newDomain[0] * zoomFactor);
-      newDomain[1] = Math.min(stockData.length - 1, newDomain[1] * zoomFactor);
-      setChartDomain({ xStart: newDomain[0], xEnd: newDomain[1] });
-    },
-    onDrag: ({ offset: [ox] }) => {
-      const panOffset = Math.round(-ox / 10);
-      const newXStart = Math.max(0, chartDomain.xStart + panOffset);
-      const newXEnd = Math.min(stockData.length - 1, chartDomain.xEnd + panOffset);
-      setChartDomain({ xStart: newXStart, xEnd: newXEnd });
-    },
-  });
+    fetchTrades();
+  }, []);
 
   // Function to handle Buy and Sell actions
   const handleTrade = async (action) => {
     const newTrade = {
-      stock: 'AAPL',
+      stock: selectedStock,
       action: action,
-      quantity: Math.floor(Math.random() * 10) + 1,
-      price: Math.floor(Math.random() * 1000) + 100,
+      quantity: Math.floor(Math.random() * 10) + 1,  // Random quantity for simplicity
+      price: Math.floor(Math.random() * 1000) + 100,  // Random price for simplicity
     };
 
+    // Insert the new trade into the Supabase database
     const { error } = await supabase.from('transactions').insert([newTrade]);
     if (error) {
       console.error('Error inserting trade:', error);
@@ -137,7 +128,7 @@ function App() {
         severity: 'error',
       });
     } else {
-      setTrades([...trades, newTrade]);
+      setTrades([...trades, newTrade]);  // Update local state with the new trade
       setNotification({
         open: true,
         message: `${action} order for ${newTrade.quantity} shares of ${newTrade.stock} placed successfully!`,
@@ -151,16 +142,6 @@ function App() {
     setNotification({ open: false, message: '', severity: '' });
   };
 
-  // Function to handle profile popover open
-  const handleProfileClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  // Function to handle profile popover close
-  const handleProfileClose = () => {
-    setAnchorEl(null);
-  };
-
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
@@ -172,45 +153,35 @@ function App() {
         </Alert>
       </Snackbar>
 
-      <Grid container spacing={2} style={{ height: '100vh' }}>
+      <Grid container spacing={2} className="full-height">
         {/* Left Section (Price Tickers / Chart) */}
         <Grid item xs={8}>
-          <Paper style={{ height: '100%', padding: '10px' }}>
+          <Paper className="large-paper">
             <Typography variant="h6" style={{ paddingBottom: '10px' }}>
-              Stock Chart for AAPL
+              Stock Chart for {selectedStock}
             </Typography>
             {loading ? (
               <Typography variant="body1">Loading stock data...</Typography>
             ) : error ? (
               <Typography variant="body1" color="error">{error}</Typography>
             ) : (
-              <div {...bind()} style={{ height: '90%', width: '100%' }}>
-                <ResponsiveContainer width="100%" height="65%">
-                  <LineChart data={stockData.slice(chartDomain.xStart, chartDomain.xEnd + 1)}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis yAxisId="right" orientation="right" domain={['auto', 'auto']} />
-                    <Tooltip />
-                    <Line type="linear" dataKey="close" stroke="#82ca9d" yAxisId="right" />
-                  </LineChart>
-                </ResponsiveContainer>
-                <ResponsiveContainer width="100%" height="25%">
-                  <BarChart data={stockData.slice(chartDomain.xStart, chartDomain.xEnd + 1)}>
-                    <XAxis dataKey="time" />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <Tooltip />
-                    <Bar dataKey="volume" fill="#8884d8" yAxisId="right" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <ResponsiveContainer width="100%" height="80%">
+                <LineChart data={stockData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" />
+                  <YAxis domain={['auto', 'auto']} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="close" stroke="#82ca9d" />
+                </LineChart>
+              </ResponsiveContainer>
             )}
           </Paper>
         </Grid>
 
-        {/* Right Section (Stock Information and Buy/Sell Orders) */}
+        {/* Right Section (Buy/Sell + Account Info + Stock Selector) */}
         <Grid item xs={4}>
           {/* Buy/Sell Section */}
-          <Paper style={{ height: '30%', padding: '10px' }}>
+          <Paper className="buy-sell-container">
             <Typography variant="h6">Buy / Sell</Typography>
             <Button
               variant="contained"
@@ -237,20 +208,32 @@ function App() {
           </Paper>
 
           {/* Account Info Section */}
-          <Paper style={{ height: '20%', padding: '10px', marginTop: '10px' }}>
-            <Typography variant="h6">Account Info</Typography>
-            <div style={{ marginTop: '10px' }}>
-              <Typography variant="body1">Account Value: $10,000</Typography>
-              <Typography variant="body1">Buying Power: $5,000</Typography>
-              <Typography variant="body1">Open P/L: +$200</Typography>
-              <Typography variant="body1">Open Positions: {selectedStock} (5 shares)</Typography>
+          <Paper className="section-paper">
+          <Typography variant="h6">Account Info</Typography>
+            <div style={{ marginTop: '10px', backgroundColor: 'gray', borderRadius:'5px'}}>
+              <div className="account-info-row">
+                <Typography className="account-info-label" variant="body1">Account Value:</Typography>
+                <Typography className="account-info-value" variant="body1">$10,000</Typography>
+              </div>
+              <div className="account-info-row">
+                <Typography className="account-info-label" variant="body1">Buying Power:</Typography>
+                <Typography className="account-info-value" variant="body1">$5,000</Typography>
+              </div>
+              <div className="account-info-row">
+                <Typography className="account-info-label" variant="body1">Open P/L:</Typography>
+                <Typography className="account-info-value" variant="body1">+$200</Typography>
+              </div>
+              <div className="account-info-row">
+                <Typography className="account-info-label" variant="body1">Open Positions:</Typography>
+                <Typography className="account-info-value" variant="body1">AAPL (5 shares)</Typography>
+              </div>
             </div>
           </Paper>
 
           {/* Stock Selector */}
-          <Paper style={{ height: '20%', padding: '10px', marginTop: '10px' }}>
-            <Typography variant="h6">Select Stock</Typography>
-            <FormControl fullWidth>
+          <Paper className="section-paper">
+            <Typography variant="h6" style={{marginBottom: '20px'}}>Select Stock</Typography>
+            <FormControl fullWidth >
               <InputLabel>Select Stock</InputLabel>
               <Select value={selectedStock} onChange={handleStockChange}>
                 <MenuItem value="AAPL">Apple (AAPL)</MenuItem>
@@ -261,7 +244,7 @@ function App() {
           </Paper>
 
           {/* Transaction History */}
-          <Paper style={{ height: '30%', padding: '10px', marginTop: '10px' }}>
+          <Paper className="table-container">
             <Typography variant="h6">Transaction History</Typography>
             <TableContainer>
               <Table aria-label="transaction history table">
@@ -293,4 +276,3 @@ function App() {
 }
 
 export default App;
-
