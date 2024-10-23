@@ -12,6 +12,19 @@ import supabase from './supabaseClient';  // Import the Supabase client
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
+    background: {
+      default: '#121212', // Default dark background
+      paper: '#1d1d1d', // Custom paper background for all Paper components
+    },
+    primary: {
+      main: '#90caf9', // Customize primary color if needed
+    },
+  },
+  typography: {
+    h6: {
+      fontFamily: '"Georgia", serif', // This changes the font for all Typography components with variant="h6"
+      fontWeight: 'bold'
+    },
   },
 });
 
@@ -140,10 +153,10 @@ function App() {
         </Alert>
       </Snackbar>
 
-      <Grid container spacing={2} style={{ height: '100vh' }}>
+      <Grid container spacing={2} className="full-height">
         {/* Left Section (Price Tickers / Chart) */}
         <Grid item xs={8}>
-          <Paper style={{ height: '100%', padding: '10px' }}>
+          <Paper className="large-paper">
             <Typography variant="h6" style={{ paddingBottom: '10px' }}>
               Stock Chart for {selectedStock}
             </Typography>
@@ -168,14 +181,15 @@ function App() {
         {/* Right Section (Buy/Sell + Account Info + Stock Selector) */}
         <Grid item xs={4}>
           {/* Buy/Sell Section */}
-          <Paper style={{ height: '30%', padding: '10px' }}>
+          <Paper className="buy-sell-container">
             <Typography variant="h6">Buy / Sell</Typography>
             <Button
               variant="contained"
               color="success"
               startIcon={<ShoppingCart />}
               fullWidth
-              style={{ marginBottom: '10px' }}
+              style={{padding: '30px'}}
+              className="button-margin button-hover-success"
               onClick={() => handleTrade('Buy')}
             >
               Buy
@@ -185,6 +199,8 @@ function App() {
               color="error"
               startIcon={<Sell />}
               fullWidth
+              className="button-hover-error"
+              style={{padding: '30px'}}
               onClick={() => handleTrade('Sell')}
             >
               Sell
@@ -192,20 +208,32 @@ function App() {
           </Paper>
 
           {/* Account Info Section */}
-          <Paper style={{ height: '20%', padding: '10px', marginTop: '10px' }}>
-            <Typography variant="h6">Account Info</Typography>
-            <div style={{ marginTop: '10px' }}>
-              <Typography variant="body1">Account Value: $10,000</Typography>
-              <Typography variant="body1">Buying Power: $5,000</Typography>
-              <Typography variant="body1">Open P/L: +$200</Typography>
-              <Typography variant="body1">Open Positions: {selectedStock} (5 shares)</Typography>
+          <Paper className="section-paper">
+          <Typography variant="h6">Account Info</Typography>
+            <div style={{ marginTop: '10px', backgroundColor: 'gray', borderRadius:'5px'}}>
+              <div className="account-info-row">
+                <Typography className="account-info-label" variant="body1">Account Value:</Typography>
+                <Typography className="account-info-value" variant="body1">$10,000</Typography>
+              </div>
+              <div className="account-info-row">
+                <Typography className="account-info-label" variant="body1">Buying Power:</Typography>
+                <Typography className="account-info-value" variant="body1">$5,000</Typography>
+              </div>
+              <div className="account-info-row">
+                <Typography className="account-info-label" variant="body1">Open P/L:</Typography>
+                <Typography className="account-info-value" variant="body1">+$200</Typography>
+              </div>
+              <div className="account-info-row">
+                <Typography className="account-info-label" variant="body1">Open Positions:</Typography>
+                <Typography className="account-info-value" variant="body1">AAPL (5 shares)</Typography>
+              </div>
             </div>
           </Paper>
 
           {/* Stock Selector */}
-          <Paper style={{ height: '20%', padding: '10px', marginTop: '10px' }}>
-            <Typography variant="h6">Select Stock</Typography>
-            <FormControl fullWidth>
+          <Paper className="section-paper">
+            <Typography variant="h6" style={{marginBottom: '20px'}}>Select Stock</Typography>
+            <FormControl fullWidth >
               <InputLabel>Select Stock</InputLabel>
               <Select value={selectedStock} onChange={handleStockChange}>
                 <MenuItem value="AAPL">Apple (AAPL)</MenuItem>
@@ -216,7 +244,7 @@ function App() {
           </Paper>
 
           {/* Transaction History */}
-          <Paper style={{ height: '30%', padding: '10px', marginTop: '10px' }}>
+          <Paper className="table-container">
             <Typography variant="h6">Transaction History</Typography>
             <TableContainer>
               <Table aria-label="transaction history table">
@@ -230,7 +258,7 @@ function App() {
                 </TableHead>
                 <TableBody>
                   {trades.map((trade, index) => (
-                    <TableRow key={index}>
+                    <TableRow key={index} className="transaction-table-row">
                       <TableCell>{trade.stock}</TableCell>
                       <TableCell align="right">{trade.action}</TableCell>
                       <TableCell align="right">{trade.quantity}</TableCell>
