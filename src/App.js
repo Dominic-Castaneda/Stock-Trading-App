@@ -1,10 +1,10 @@
+// /src/App.js
 import React, { useState, useEffect } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { Grid, Paper, Button, Typography, Snackbar, Alert } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { VictoryChart, VictoryCandlestick, VictoryAxis, VictoryTheme, VictoryLabel } from 'victory';
-import { ShoppingCart, Sell } from '@mui/icons-material';
-import supabase from './supabaseClient';  // Import the Supabase client
+import Dashboard from './pages/Dashboard';
+import Notification from './components/Notification';
+import supabase from './supabaseClient'; // Import the Supabase client
 
 // Create a dark theme using Material-UI's theme system
 const darkTheme = createTheme({
@@ -15,9 +15,8 @@ const darkTheme = createTheme({
 
 function App() {
   const [trades, setTrades] = useState([]);
-  const [stockData, setStockData] = useState([]);
-  const [displayedData, setDisplayedData] = useState([]); // Data shown on the chart
-  const [currentCandle, setCurrentCandle] = useState(null); // Current candle being simulated
+  const [displayedData, setDisplayedData] = useState([]);
+  const [currentCandle, setCurrentCandle] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: '' });
   const [profile] = useState({
     name: 'John Doe',
@@ -26,7 +25,6 @@ function App() {
     profilePic: null,
   });
 
-  // Fetch stock data from Supabase when component loads
   useEffect(() => {
     const fetchStockData = async () => {
       const { data, error } = await supabase.from('AAPL').select('*');
@@ -57,25 +55,24 @@ function App() {
           open: parsePrice(item['Open']),
           high: parsePrice(item['High']),
           low: parsePrice(item['Low']),
-          close: parsePrice(item['Close/Last']),
+          close: parsePrice(item['Close']),
           volume: parseInt(item['Volume'], 10),
         };
       });
 
-      setStockData(transformedData.reverse()); // Reverse to start from the latest entry
-      setDisplayedData([transformedData[0]]); // Display the first data point immediately
-      setCurrentCandle({ ...transformedData[0], close: transformedData[0].open });
+      const reversedData = transformedData.reverse();
+      setDisplayedData(reversedData.slice(0, 10)); // Initialize with the latest 10 data points, but no complete candles
+      setCurrentCandle({ ...reversedData[0], close: reversedData[0].open }); // Start with the first candle fluctuating
 
-      // Start fluctuating the first candle right away
-      startFluctuatingCandle(transformedData[0]);
+      // Start fluctuating the current candle on the right-most part of the chart
+      startFluctuatingCandle(reversedData[0]);
     };
 
     fetchStockData();
   }, []);
 
-  // Function to simulate candle fluctuations starting right away
-  const startFluctuatingCandle = (candle) => {
-    let currentPrice = candle.open;
+  const startFluctuatingCandle = (initialCandle) => {
+    let currentPrice = initialCandle.open;
     let highReached = false;
     let lowReached = false;
 
@@ -86,43 +83,25 @@ function App() {
         let newClose = currentPrice;
 
         if (!highReached) {
-          // Move towards the high price
-          const priceChange = Math.random() * (candle.high - currentPrice);
+          const priceChange = Math.random() * (initialCandle.high - currentPrice);
           newClose = currentPrice + priceChange;
 
-          if (newClose >= candle.high) {
-            newClose = candle.high;
+          if (newClose >= initialCandle.high) {
+            newClose = initialCandle.high;
             highReached = true;
           }
         } else if (highReached && !lowReached) {
-          // Move towards the low price
-          const priceChange = Math.random() * (currentPrice - candle.low);
+          const priceChange = Math.random() * (currentPrice - initialCandle.low);
           newClose = currentPrice - priceChange;
 
-          if (newClose <= candle.low) {
-            newClose = candle.low;
+          if (newClose <= initialCandle.low) {
+            newClose = initialCandle.low;
             lowReached = true;
           }
         } else {
-          // Fluctuate towards the closing price within high and low bounds
           const randomDirection = Math.random() < 0.5 ? -1 : 1;
           const priceChange = randomDirection * Math.random();
-          newClose = Math.max(candle.low, Math.min(candle.high, currentPrice + priceChange));
-        }
-
-        if (highReached && lowReached && Math.abs(newClose - candle.close) < 0.1) {
-          clearInterval(candleInterval);
-          newClose = candle.close;
-
-          // Push the finalized candle to displayed data
-          setDisplayedData((prevData) => [...prevData, {
-            ...candle,
-            close: newClose,
-            high: Math.max(prevCandle.high, newClose),
-            low: Math.min(prevCandle.low, newClose)
-          }]);
-
-          return null; // Candle is complete, no need to keep fluctuating
+          newClose = Math.max(initialCandle.low, Math.min(initialCandle.high, currentPrice + priceChange));
         }
 
         currentPrice = newClose;
@@ -132,7 +111,7 @@ function App() {
           ...prevCandle,
           close: newClose,
           high: Math.max(prevCandle.high, newClose),
-          low: Math.min(prevCandle.low, newClose)
+          low: Math.min(prevCandle.low, newClose),
         };
       });
     }, 1000);
@@ -140,43 +119,6 @@ function App() {
     return candleInterval;
   };
 
-  // Function to simulate adding data points every 60 seconds
-  useEffect(() => {
-    if (stockData.length > 0) {
-      let candleInterval;
-
-      const interval = setInterval(() => {
-        setDisplayedData((prevData) => {
-          const nextIndex = prevData.length;
-          if (nextIndex < stockData.length) {
-            const newCandle = stockData[nextIndex];
-            setCurrentCandle({ ...newCandle, close: newCandle.open });
-
-            // Clear previous candleInterval if exists
-            if (candleInterval) {
-              clearInterval(candleInterval);
-            }
-
-            // Start a new interval to simulate price changes every second within the current candle
-            candleInterval = startFluctuatingCandle(newCandle);
-
-            return [...prevData, newCandle];
-          }
-          clearInterval(interval);
-          return prevData;
-        });
-      }, 60000);
-
-      return () => {
-        clearInterval(interval);
-        if (candleInterval) {
-          clearInterval(candleInterval);
-        }
-      };
-    }
-  }, [stockData]);
-
-  // Function to handle Buy and Sell actions
   const handleTrade = async (action) => {
     const newTrade = {
       stock: 'AAPL',
@@ -203,7 +145,6 @@ function App() {
     }
   };
 
-  // Function to close notification
   const handleCloseNotification = () => {
     setNotification({ ...notification, open: false });
   };
@@ -211,85 +152,13 @@ function App() {
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={3}>
-          <Paper style={{ padding: '20px' }}>
-            <Typography variant="h6">{profile.name}</Typography>
-            <Typography>Current Balance: ${profile.currentBalance}</Typography>
-            <Typography>Available Funds: ${profile.availableFunds}</Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={6} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <VictoryChart
-            theme={VictoryTheme.material}
-            domainPadding={{ x: 25, y: 20 }}
-            scale={{ x: 'time' }}
-            width={1000}
-            height={500}
-            style={{ background: { fill: "#282c34" } }}
-          >
-            <VictoryLabel text="AAPL Stock Price" x={500} y={30} textAnchor="middle" style={{ fill: "#ffffff" }} />
-            <VictoryAxis
-              tickFormat={(t) => `${t.getMonth() + 1}/${t.getDate()}`}
-              style={{
-                axis: { stroke: "#FFFFFF" },
-                tickLabels: { fill: "#FFFFFF" },
-                grid: { stroke: "#444", strokeDasharray: "3, 3" },
-              }}
-            />
-            <VictoryAxis
-              dependentAxis
-              style={{
-                axis: { stroke: "#FFFFFF" },
-                tickLabels: { fill: "#FFFFFF" },
-                grid: { stroke: "#444", strokeDasharray: "3, 3" },
-              }}
-            />
-            <VictoryCandlestick
-              data={[...displayedData, currentCandle].filter(Boolean)}
-              x="date"
-              open="open"
-              close="close"
-              high="high"
-              low="low"
-              candleColors={{ positive: "#4caf50", negative: "#f44336" }}
-            />
-          </VictoryChart>
-        </Grid>
-        <Grid item xs={12} md={3} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Paper style={{ padding: '20px' }}>
-            <Typography variant="h6">Stock Information</Typography>
-            <Typography>Ticker: AAPL</Typography>
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<ShoppingCart />}
-              onClick={() => handleTrade('Buy')}
-              style={{ marginTop: '10px', marginRight: '10px' }}
-            >
-              Buy
-            </Button>
-            <Button
-              variant="contained"
-              color="error"
-              startIcon={<Sell />}
-              onClick={() => handleTrade('Sell')}
-              style={{ marginTop: '10px' }}
-            >
-              Sell
-            </Button>
-          </Paper>
-        </Grid>
-      </Grid>
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={handleCloseNotification}
-      >
-        <Alert onClose={handleCloseNotification} severity={notification.severity}>
-          {notification.message}
-        </Alert>
-      </Snackbar>
+      <Dashboard
+        profile={profile}
+        displayedData={displayedData}
+        currentCandle={currentCandle}
+        handleTrade={handleTrade}
+      />
+      <Notification notification={notification} handleClose={handleCloseNotification} />
     </ThemeProvider>
   );
 }
